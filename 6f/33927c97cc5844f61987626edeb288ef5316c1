@@ -1,0 +1,41 @@
+frontend/src/components/Thread.tsx
+  s_82dc1956d01244::t_aaa1ca37b3d216 138-150,152-158,161-168,180-183,187,194,198-199,201,203-205,207-229,233-241,243-260
+  s_82dc1956d01244::t_291bebfc6c8a9a 175
+  s_82dc1956d01244::t_abbe88a61cc2c2 200,206
+  s_82dc1956d01244::t_0a3eb493a30add 1
+  s_82dc1956d01244::t_a15f866956e3a8 13,15
+  s_82dc1956d01244::t_08e40b42f562a3 134-136,169-174,176-179,184-186,188-193,195-197,202,230-232,242
+.gitignore
+  h_e0649daf4c2899 24-25
+frontend/src/context/FeedbackCommentContext.tsx
+  s_82dc1956d01244::t_14e2ecd549ae78 1,3,7-8,13
+  s_82dc1956d01244::t_aebf94d78e547d 2,4-6,9-12,14-16
+frontend/src/RuntimeProvider.tsx
+  s_82dc1956d01244::t_d60826bab99625 168-173
+  s_82dc1956d01244::t_3091f59f2e2cf9 2
+  s_82dc1956d01244::t_679e804072d90e 43-50,55,67,71-75,79
+  s_82dc1956d01244::t_87303cfc8cfaec 106-115,124
+frontend/package-lock.json
+  s_82dc1956d01244::t_b87916f175c504 527-528,5879-5880,6763-6764,7126,7199,8438,8476,8486,8518
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6f33927c97cc5844f61987626edeb288ef5316c1",
+  "prompts": {},
+  "humans": {
+    "h_e0649daf4c2899": {
+      "author": "Conrad Corbett <conrad.corbett@langchain.dev>"
+    }
+  },
+  "sessions": {
+    "s_82dc1956d01244": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8dcb25c4-ff71-4efb-8c4f-69ced8164618",
+        "model": "default"
+      },
+      "human_author": "Conrad Corbett <conrad.corbett@langchain.dev>"
+    }
+  }
+}
