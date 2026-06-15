@@ -1,4 +1,5 @@
 import { useMemo, useRef, type ReactNode } from "react";
+import { FeedbackCommentContext } from "./context/FeedbackCommentContext";
 import {
   AssistantRuntimeProvider,
   getExternalStoreMessages,
@@ -39,10 +40,19 @@ const runIdFromMetadata = (
  * LangChain message id. `getExternalStoreMessages` recovers those original
  * messages from the assistant-ui ThreadMessage so we can look the id up.
  */
+const negativeFeedbackComment = (
+  pendingNegativeCommentRef: React.MutableRefObject<string | null>,
+): string => {
+  const userComment = pendingNegativeCommentRef.current?.trim();
+  pendingNegativeCommentRef.current = null;
+  return userComment || "User rated this response negative.";
+};
+
 const buildFeedbackAdapter = (
   ctx: ChatApiContext,
   metadataMap: Map<string, LangGraphTupleMetadata>,
   latestRunId: string | undefined,
+  pendingNegativeCommentRef: React.MutableRefObject<string | null>,
 ): FeedbackAdapter => ({
   submit: ({ message, type }) => {
     const sourceMessages =
@@ -54,13 +64,19 @@ const buildFeedbackAdapter = (
 
     if (!runId) {
       console.warn("No run_id found for message; skipping feedback.");
+      if (type === "negative") pendingNegativeCommentRef.current = null;
       return;
     }
+
+    const comment =
+      type === "positive"
+        ? "User rated this response positive."
+        : negativeFeedbackComment(pendingNegativeCommentRef);
 
     void submitFeedback(ctx, {
       runId,
       score: type === "positive" ? 1 : 0,
-      comment: `User rated this response ${type}.`,
+      comment,
     }).catch((err) => console.error("Failed to submit feedback:", err));
   },
 });
@@ -87,6 +103,16 @@ export function RuntimeProvider({
   // being recreated on every render.
   const metadataMapRef = useRef<Map<string, LangGraphTupleMetadata>>(new Map());
   const latestRunIdRef = useRef<string | undefined>(undefined);
+  const pendingNegativeCommentRef = useRef<string | null>(null);
+
+  const feedbackCommentContext = useMemo(
+    () => ({
+      setPendingNegativeComment: (comment: string | null) => {
+        pendingNegativeCommentRef.current = comment;
+      },
+    }),
+    [],
+  );
 
   const feedbackAdapter = useMemo<FeedbackAdapter>(
     () => ({
@@ -95,6 +121,7 @@ export function RuntimeProvider({
           ctxRef.current,
           metadataMapRef.current,
           latestRunIdRef.current,
+          pendingNegativeCommentRef,
         ).submit(feedback),
     }),
     [],
@@ -138,10 +165,12 @@ export function RuntimeProvider({
   });
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <MetadataSync mapRef={metadataMapRef} />
-      {children}
-    </AssistantRuntimeProvider>
+    <FeedbackCommentContext.Provider value={feedbackCommentContext}>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <MetadataSync mapRef={metadataMapRef} />
+        {children}
+      </AssistantRuntimeProvider>
+    </FeedbackCommentContext.Provider>
   );
 }
 

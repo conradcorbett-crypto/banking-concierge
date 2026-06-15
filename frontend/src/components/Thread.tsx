@@ -1,4 +1,4 @@
-import { type FC } from "react";
+import { useEffect, useId, useState, type FC } from "react";
 import {
   ActionBarPrimitive,
   ComposerPrimitive,
@@ -10,7 +10,9 @@ import {
   type EmptyMessagePartComponent,
   type ToolCallMessagePartComponent,
 } from "@assistant-ui/react";
+import { useActionBarFeedbackNegative } from "@assistant-ui/core/react";
 import { StreamdownTextPrimitive } from "@assistant-ui/react-streamdown";
+import { useFeedbackComment } from "../context/FeedbackCommentContext";
 
 const SUGGESTIONS = [
   "What's the monthly fee on Everyday Checking?",
@@ -129,31 +131,133 @@ const ThumbDownIcon: FC = () => (
 );
 
 /**
- * Thumbs up/down for the assistant reply. The buttons drive assistant-ui's
- * built-in FeedbackAdapter (wired in RuntimeProvider), which resolves the
- * LangSmith run_id and records the score. `data-submitted` is toggled by the
- * primitive once a choice is made, so the active button stays highlighted.
+ * Thumbs up/down for the assistant reply. Positive feedback submits immediately
+ * via assistant-ui's FeedbackAdapter. Negative feedback opens an optional
+ * comment box before submit.
  */
-const FeedbackBar: FC = () => (
-  <ActionBarPrimitive.Root
-    hideWhenRunning
-    autohide="not-last"
-    className="ml-1 flex items-center gap-1 text-[var(--muted-foreground)]"
-  >
-    <ActionBarPrimitive.FeedbackPositive
-      aria-label="Good response"
-      className="rounded-md p-1.5 transition-colors hover:bg-[var(--accent-bg)] hover:text-[var(--accent)] data-[submitted=true]:bg-[var(--accent-bg)] data-[submitted=true]:text-[var(--accent)]"
-    >
-      <ThumbUpIcon />
-    </ActionBarPrimitive.FeedbackPositive>
-    <ActionBarPrimitive.FeedbackNegative
+const NegativeFeedbackButton: FC<{
+  onOpen: () => void;
+  isOpen: boolean;
+}> = ({ onOpen, isOpen }) => {
+  const { isSubmitted } = useActionBarFeedbackNegative();
+  const isPositiveSubmitted = useAuiState(
+    (s) => s.message.metadata.submittedFeedback?.type === "positive",
+  );
+  const feedbackLocked = isSubmitted || isPositiveSubmitted;
+
+  return (
+    <button
+      type="button"
       aria-label="Bad response"
-      className="rounded-md p-1.5 transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] data-[submitted=true]:bg-[var(--danger-bg)] data-[submitted=true]:text-[var(--danger)]"
+      disabled={feedbackLocked}
+      {...(isSubmitted ? { "data-submitted": "true" } : {})}
+      {...(isOpen && !isSubmitted ? { "data-open": "true" } : {})}
+      className="rounded-md p-1.5 transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-40 data-[open=true]:bg-[var(--danger-bg)] data-[open=true]:text-[var(--danger)] data-[submitted=true]:bg-[var(--danger-bg)] data-[submitted=true]:text-[var(--danger)]"
+      onClick={() => {
+        if (!feedbackLocked) onOpen();
+      }}
     >
       <ThumbDownIcon />
-    </ActionBarPrimitive.FeedbackNegative>
-  </ActionBarPrimitive.Root>
-);
+    </button>
+  );
+};
+
+const NegativeFeedbackPanel: FC<{
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+  const { setPendingNegativeComment } = useFeedbackComment();
+  const { submit, isSubmitted } = useActionBarFeedbackNegative();
+  const isPositiveSubmitted = useAuiState(
+    (s) => s.message.metadata.submittedFeedback?.type === "positive",
+  );
+  const [comment, setComment] = useState("");
+  const commentFieldId = useId();
+
+  const feedbackLocked = isSubmitted || isPositiveSubmitted;
+
+  useEffect(() => {
+    if (feedbackLocked) onClose();
+  }, [feedbackLocked, onClose]);
+
+  if (!isOpen || feedbackLocked) return null;
+
+  const handleCancel = () => {
+    setComment("");
+    onClose();
+  };
+
+  const handleSubmit = () => {
+    setPendingNegativeComment(comment.trim() || null);
+    submit();
+    setComment("");
+    onClose();
+  };
+
+  return (
+    <div className="w-full max-w-[90%] rounded-xl border border-[var(--danger-border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-bubble)]">
+      <label
+        htmlFor={commentFieldId}
+        className="mb-2 block text-xs font-medium text-[var(--muted-foreground)]"
+      >
+        What went wrong? (optional)
+      </label>
+      <textarea
+        id={commentFieldId}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        rows={3}
+        placeholder="Tell us what was incorrect or unhelpful…"
+        className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--danger)] focus:ring-2 focus:ring-[var(--danger-border)]"
+      />
+      <div className="mt-2 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--foreground)]"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="rounded-lg bg-[var(--danger-bg)] px-3 py-1.5 text-xs font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-border)]"
+        >
+          Submit feedback
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const FeedbackBar: FC = () => {
+  const [isCommentOpen, setIsCommentOpen] = useState(false);
+
+  return (
+    <div className="ml-1 flex w-full flex-col items-start gap-2">
+      <ActionBarPrimitive.Root
+        hideWhenRunning
+        autohide="not-last"
+        className="flex items-center gap-1 text-[var(--muted-foreground)]"
+      >
+        <ActionBarPrimitive.FeedbackPositive
+          aria-label="Good response"
+          className="rounded-md p-1.5 transition-colors hover:bg-[var(--accent-bg)] hover:text-[var(--accent)] data-[submitted=true]:bg-[var(--accent-bg)] data-[submitted=true]:text-[var(--accent)]"
+        >
+          <ThumbUpIcon />
+        </ActionBarPrimitive.FeedbackPositive>
+        <NegativeFeedbackButton
+          isOpen={isCommentOpen}
+          onOpen={() => setIsCommentOpen(true)}
+        />
+      </ActionBarPrimitive.Root>
+      <NegativeFeedbackPanel
+        isOpen={isCommentOpen}
+        onClose={() => setIsCommentOpen(false)}
+      />
+    </div>
+  );
+};
 
 const AssistantMessage: FC = () => (
   <MessagePrimitive.Root

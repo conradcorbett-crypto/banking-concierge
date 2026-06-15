@@ -21,3 +21,5 @@ node_modules/
 
 # LangGraph CLI runtime state
 .langgraph_api/
+
+.cursor
